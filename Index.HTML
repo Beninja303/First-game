@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>St. Michael: Angelic Strike - Demon Combat Update</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { background: linear-gradient(#87CEEB, #ffffff); display: block; }
+    #swingBtn {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      font-size: 20px;
+      background-color: gold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<button id="swingBtn">Swing Sword</button>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let frame = 0;
+let swordUnlocked = false;
+let demonsDodged = 0;
+let demonsSlain = 0;
+let bossFight = false;
+let bossIndex = 0;
+let isSwinging = false;
+
+let michaelX = canvas.width / 2;
+let michaelY = canvas.height / 2;
+let michaelSpeed = 5;
+
+const michaelImg = new Image();
+michaelImg.src = "https://i.imgur.com/zlq6bLD.png";
+
+const arrowImg = new Image();
+arrowImg.src = "https://i.imgur.com/k0B8mPY.png";
+
+const demonImgs = [
+  "https://i.imgur.com/OGzHtQm.png", // Skull
+  "https://i.imgur.com/pRb8s7m.png", // Ghost
+  "https://i.imgur.com/Yl7qLtF.png"  // Shadow bat
+];
+
+let demons = [];
+let arrows = [];
+
+const bosses = [
+  { name: "Abyssion", color: "red", health: 5 },
+  { name: "Vortigar", color: "orange", health: 10 },
+  { name: "Zarnox", color: "yellow", health: 15 },
+  { name: "Necrith", color: "green", health: 20 },
+  { name: "Oblivion", color: "blue", health: 25 },
+  { name: "Xeraphon", color: "indigo", health: 30 },
+  { name: "Dreadion", color: "violet", health: 40 }
+];
+
+class Demon {
+  constructor() {
+    this.x = canvas.width;
+    this.y = Math.random() * (canvas.height - 100);
+    this.speed = 2 + Math.random() * 3;
+    this.img = new Image();
+    this.img.src = demonImgs[Math.floor(Math.random() * demonImgs.length)];
+    this.width = 60;
+    this.height = 60;
+  }
+
+  draw() {
+    ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+  }
+
+  update() {
+    this.x -= this.speed;
+    this.draw();
+  }
+}
+
+class Arrow {
+  constructor() {
+    this.x = michaelX + 30;
+    this.y = michaelY;
+    this.speed = 7;
+    this.width = 40;
+    this.height = 10;
+  }
+
+  draw() {
+    ctx.drawImage(arrowImg, this.x, this.y, this.width, this.height);
+  }
+
+  update() {
+    this.x += this.speed;
+    this.draw();
+  }
+}
+
+function drawGame() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw St. Michael
+  ctx.drawImage(michaelImg, michaelX - 50, michaelY - 50, 100, 100);
+
+  // UI text
+  ctx.font = "24px serif";
+  ctx.fillStyle = "gold";
+  ctx.fillText("St. Michael: Angelic Strike", 50, 50);
+
+  if (!swordUnlocked) {
+    ctx.fillStyle = "black";
+    ctx.fillText("Dodge 7 demons to find the Sword!", 50, 100);
+  } else if (!bossFight) {
+    ctx.fillStyle = "black";
+    ctx.fillText(`Demons slain: ${demonsSlain} / 50`, 50, 100);
+  }
+
+  // Spawn demons
+  if (!bossFight && frame % 60 === 0 && swordUnlocked) {
+    demons.push(new Demon());
+  }
+
+  // Spawn arrows
+  if (swordUnlocked && frame % 30 === 0) {
+    arrows.push(new Arrow());
+  }
+
+  // Demons update & collisions
+  demons.forEach((demon, dIndex) => {
+    demon.update();
+
+    // Sword hit
+    if (isSwinging &&
+        demon.x < michaelX + 60 && demon.x + demon.width > michaelX &&
+        demon.y < michaelY + 60 && demon.y + demon.height > michaelY) {
+      demons.splice(dIndex, 1);
+      demonsSlain++;
+    }
+
+    // Arrow hit
+    arrows.forEach((arrow, aIndex) => {
+      if (arrow.x < demon.x + demon.width &&
+          arrow.x + arrow.width > demon.x &&
+          arrow.y < demon.y + demon.height &&
+          arrow.y + arrow.height > demon.y) {
+        demons.splice(dIndex, 1);
+        arrows.splice(aIndex, 1);
+        demonsSlain++;
+      }
+    });
+  });
+
+  // Arrows update
+  arrows.forEach((arrow, i) => {
+    arrow.update();
+    if (arrow.x > canvas.width) arrows.splice(i, 1);
+  });
+
+  if (!swordUnlocked && demonsDodged >= 7) {
+    swordUnlocked = true;
+  }
+
+  if (swordUnlocked && demonsSlain >= 50) {
+    bossFight = true;
+    demons = [];
+    arrows = [];
+  }
+
+  // Boss fights
+  if (bossFight && bossIndex < bosses.length) {
+    const boss = bosses[bossIndex];
+    ctx.fillStyle = boss.color;
+    ctx.fillText(`Boss Fight: ${boss.name}`, 50, 140);
+    ctx.fillText(`Health: ${boss.health}`, 50, 170);
+
+    if (frame % 100 === 0) {
+      boss.health--;
+      if (boss.health <= 0) bossIndex++;
+    }
+  } else if (bossFight && bossIndex >= bosses.length) {
+    ctx.fillStyle = "purple";
+    ctx.font = "30px serif";
+    ctx.fillText("Victory! Heavenly party time! 🎉", 50, 240);
+  }
+
+  frame++;
+  requestAnimationFrame(drawGame);
+}
+
+// Movement
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp") michaelY -= michaelSpeed;
+  if (e.key === "ArrowDown") michaelY += michaelSpeed;
+  if (e.key === "ArrowLeft") michaelX -= michaelSpeed;
+  if (e.key === "ArrowRight") michaelX += michaelSpeed;
+});
+
+// Sword swing
+document.getElementById("swingBtn").addEventListener("click", () => {
+  isSwinging = true;
+  setTimeout(() => isSwinging = false, 300);
+});
+
+michaelImg.onload = drawGame;
+</script>
+</body>
+</html>
